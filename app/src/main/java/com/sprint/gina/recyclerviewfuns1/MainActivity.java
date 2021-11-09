@@ -3,6 +3,7 @@ package com.sprint.gina.recyclerviewfuns1;
 import androidx.annotation.NonNull;
 import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.cardview.widget.CardView;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
@@ -10,7 +11,11 @@ import android.content.DialogInterface;
 import android.os.Bundle;
 import android.os.Handler;
 import android.util.Log;
+import android.view.ActionMode;
 import android.view.LayoutInflater;
+import android.view.Menu;
+import android.view.MenuInflater;
+import android.view.MenuItem;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.ImageView;
@@ -79,26 +84,37 @@ public class MainActivity extends AppCompatActivity {
         // the adapter should be notified so it can force
         // a refresh of the recyclerview
         // example: in 5 seconds, let's remove the book at item position 1
-        Handler handler = new Handler();
-        handler.postDelayed(new Runnable() {
-            @Override
-            public void run() {
-                books.remove(1);
-                // notify the adapter
-                adapter.notifyItemRemoved(1);
-            }
-        }, 5000);
+//        Handler handler = new Handler();
+//        handler.postDelayed(new Runnable() {
+//            @Override
+//            public void run() {
+//                books.remove(1);
+//                // notify the adapter
+//                adapter.notifyItemRemoved(1);
+//            }
+//        }, 5000);
     }
 
     class CustomAdapter extends RecyclerView.Adapter<CustomAdapter.CustomViewHolder> {
+        // we are going to set up a CAM (contextual action mode) on
+        // long click so the user can delete multiple items they have
+        // selected
+        boolean multiSelect = false;
+        ActionMode actionMode;
+        ActionMode.Callback callbacks;
+        List<Book> selectedItems = new ArrayList<>(); // the list of currently selected items in CAM
+
         class CustomViewHolder extends RecyclerView.ViewHolder implements View.OnClickListener, View.OnLongClickListener {
 //            TextView text1;
+            CardView myCardView1;
             TextView myText1;
             ImageView myImage1;
+
             public CustomViewHolder(@NonNull View itemView) {
                 super(itemView);
 
 //                text1 = itemView.findViewById(android.R.id.text1);
+                myCardView1 = itemView.findViewById(R.id.myCardView1);
                 myText1 = itemView.findViewById(R.id.myText1);
                 myImage1 = itemView.findViewById(R.id.myImage1);
 
@@ -109,13 +125,31 @@ public class MainActivity extends AppCompatActivity {
 
             public void updateView(Book b) {
 //                text1.setText(b.toString());
+                myCardView1.setCardBackgroundColor(getResources().getColor(R.color.white));
                 myText1.setText(b.toString());
                 myImage1.setImageResource(R.drawable.placeholderimage);
+            }
+
+            public void selectItem(Book b) {
+                if (multiSelect) {
+                    if (selectedItems.contains(b)) {
+                        // item is already selected, unselect it
+                        selectedItems.remove(b);
+                        myCardView1.setCardBackgroundColor(getResources().getColor(R.color.white));
+                    }
+                    else {
+                        // item is not selected, select it
+                        selectedItems.add(b);
+                        myCardView1.setCardBackgroundColor(getResources().getColor(R.color.teal_200));
+                    }
+                    actionMode.setTitle(selectedItems.size() + " item(s) selected");
+                }
             }
 
             @Override
             public void onClick(View v) {
                 Log.d(TAG, "onClick: ");
+                selectItem(books.get(getAdapterPosition()));
             }
 
             @Override
@@ -124,20 +158,67 @@ public class MainActivity extends AppCompatActivity {
                 // a demo of alert dialogs
                 // use the AlertDialog.Builder class and method chaining
                 // to set up an alert dialog
-                AlertDialog.Builder builder = new AlertDialog.Builder(MainActivity.this);
-                builder.setTitle("Item Long Clicked")
-                        .setMessage("You clicked on an item")
-                        .setPositiveButton("Okay", new DialogInterface.OnClickListener() {
-                            @Override
-                            public void onClick(DialogInterface dialog, int which) {
-                                Toast.makeText(MainActivity.this, "OKAY", Toast.LENGTH_SHORT).show();
-                            }
-                        })
-                        .setNegativeButton("Dismiss", null);
-                builder.show();
-                
+//                AlertDialog.Builder builder = new AlertDialog.Builder(MainActivity.this);
+//                builder.setTitle("Item Long Clicked")
+//                        .setMessage("You clicked on an item")
+//                        .setPositiveButton("Okay", new DialogInterface.OnClickListener() {
+//                            @Override
+//                            public void onClick(DialogInterface dialog, int which) {
+//                                Toast.makeText(MainActivity.this, "OKAY", Toast.LENGTH_SHORT).show();
+//                            }
+//                        })
+//                        .setNegativeButton("Dismiss", null);
+//                builder.show();
+
+                // enter CAM on long click
+                MainActivity.this.startActionMode(callbacks);
+                // if you are not nested in MainActivity, you can get a reference
+                // to MainActivity via v.getContext()
+                selectItem(books.get(getAdapterPosition()));
                 return true; // false means this callback did not "consume" the event
             }
+        }
+
+        public CustomAdapter() {
+            super();
+
+            callbacks = new ActionMode.Callback() {
+                @Override
+                public boolean onCreateActionMode(ActionMode mode, Menu menu) {
+                    multiSelect = true;
+                    actionMode = mode;
+                    // inflate the CAM menu
+                    MenuInflater menuInflater = getMenuInflater();
+                    menuInflater.inflate(R.menu.cam_menu, menu);
+                    return true; // yes, enter CAM
+                }
+
+                @Override
+                public boolean onPrepareActionMode(ActionMode mode, Menu menu) {
+                    return false;
+                }
+
+                @Override
+                public boolean onActionItemClicked(ActionMode mode, MenuItem item) {
+                    // called when the user clicks on a CAM menu item
+                    switch (item.getItemId()) {
+                        case R.id.deleteMenuItem:
+                            // TODO: delete the items the user has currently selected
+                            Toast.makeText(MainActivity.this, "TODO: delete items", Toast.LENGTH_SHORT).show();
+                            mode.finish();
+                            return true;
+                    }
+                    return false;
+                }
+
+                @Override
+                public void onDestroyActionMode(ActionMode mode) {
+                    multiSelect = false;
+                    // TODO: go through selectedItems and change the card view color back
+                    selectedItems.clear();
+                    notifyDataSetChanged(); // not good practice (see TODO above)
+                }
+            };
         }
 
         @NonNull
